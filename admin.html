@@ -129,6 +129,12 @@
         import { getDatabase, ref, onValue, set, remove } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
 
         const firebaseConfig = { apiKey: "AIzaSyAoQw5dhwS5JJZIWSPQTgKdMtB5ZEsoxLk", authDomain: "arng-805db.firebaseapp.com", projectId: "arng-805db", databaseURL: "https://arng-805db-default-rtdb.firebaseio.com/" };
+        
+        // Error Tracker to show issues on screen
+        window.addEventListener('unhandledrejection', function(event) {
+            alert("⚠️ Admin Panel Error: " + (event.reason ? event.reason.message : "Database permission denied. Please check Firebase Rules."));
+        });
+        
         const app = initializeApp(firebaseConfig); const db = getDatabase(app);
 
         // Security Login
