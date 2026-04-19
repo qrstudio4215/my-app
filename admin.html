@@ -704,10 +704,11 @@
         const canvas = document.querySelector('#qr-container canvas');
         if (!canvas) return;
         const display = document.getElementById('zoom-qr-display');
-        const cloned = canvas.cloneNode(true);
-        cloned.style.cssText = 'width:260px;height:260px;border-radius:12px;';
+        const img = document.createElement('img');
+        img.src = canvas.toDataURL('image/png');
+        img.style.cssText = 'width:260px;height:260px;border-radius:12px;';
         display.innerHTML = '';
-        display.appendChild(cloned);
+        display.appendChild(img);
         document.getElementById('zoom-modal').classList.add('open');
     }
     function closeZoom() { document.getElementById('zoom-modal').classList.remove('open'); }
@@ -815,7 +816,22 @@
         document.getElementById('use-gradient').checked = s.grad;
         toggleGradientUI();
         document.getElementById('bg-transparent').checked = false;
-        selectedCorner = name === 'dot' || name === 'galaxy' ? 'dot' : 'square';
+        
+        if (s.dot < 1) {
+            document.getElementById('qr-style').value = 'dot';
+        } else {
+            document.getElementById('qr-style').value = 'square';
+        }
+
+        let cName = 'square';
+        if(name === 'dot' || name === 'galaxy') cName = 'dot';
+        else if(name === 'rose' || name === 'blue') cName = 'extra-rounded';
+        
+        document.querySelectorAll('.frame-chip[id^="corner-"]').forEach(c => c.classList.remove('active'));
+        const cornerEl = document.getElementById('corner-' + cName);
+        if(cornerEl) cornerEl.classList.add('active');
+        selectedCorner = cName;
+        
         autoGenerate();
     }
 
@@ -918,7 +934,7 @@
         }
         else if (activeDataTab === 'contact') {
             const n = document.getElementById('vc-name').value, p = document.getElementById('vc-phone').value, e = document.getElementById('vc-email').value;
-            if(n||p||e) textData = `BEGIN:VCARD\nVERSION:3.0\nFN:${n}\nTEL:${p}\nEMAIL:${e}\nEND:VCARD`;
+            if(n||p||e) textData = `BEGIN:VCARD\nVERSION:3.0\nFN:${n}\nTEL;TYPE=CELL:${p}\nEMAIL:${e}\nEND:VCARD`;
         }
         else if (activeDataTab === 'email') {
             const to = document.getElementById('em-to').value, sub = encodeURIComponent(document.getElementById('em-sub').value), msg = encodeURIComponent(document.getElementById('em-msg').value);
@@ -942,20 +958,23 @@
         // 📞 Phone Call
         else if (activeDataTab === 'phone') {
             const num = document.getElementById('phone-num').value.trim().replace(/[^0-9+]/g,'');
-            if(num) textData = `tel:${num}`;
+            if(num) textData = `TEL:${num}`;
         }
         // 💸 Payment (bKash/Nagad)
         else if (activeDataTab === 'payment') {
             const svc   = document.getElementById('pay-service').value;
             const num   = document.getElementById('pay-number').value.trim();
             const amt   = document.getElementById('pay-amount').value.trim();
-            const note  = document.getElementById('pay-note').value.trim();
             if(num) {
-                const svcNames = { bkash:'bKash', nagad:'Nagad', rocket:'Rocket', upay:'Upay' };
-                let parts = [`${svcNames[svc]}:${num}`];
-                if(amt)  parts.push(`Amount:${amt}`);
-                if(note) parts.push(`Note:${note}`);
-                textData = parts.join(';');
+                if(svc === 'bkash') {
+                    textData = `bkash://sendmoney?receiver=${num}` + (amt ? `&amount=${amt}` : '');
+                } else if(svc === 'nagad') {
+                    textData = `nagad://sendmoney?receiver=${num}` + (amt ? `&amount=${amt}` : '');
+                } else if(svc === 'rocket') {
+                    textData = `rocket://sendmoney?receiver=${num}` + (amt ? `&amount=${amt}` : '');
+                } else if(svc === 'upay') {
+                    textData = `upay://sendmoney?receiver=${num}` + (amt ? `&amount=${amt}` : '');
+                }
             }
         }
         // 💬 Telegram
