@@ -921,20 +921,41 @@
 
     function encryptText(text, pass) {
         text = "VALID::" + text;
-        let result = '';
-        for(let i=0; i<text.length; i++) {
-            result += String.fromCharCode(text.charCodeAt(i) ^ pass.charCodeAt(i % pass.length));
+        const encoder = new TextEncoder();
+        const textBytes = encoder.encode(text);
+        const passBytes = encoder.encode(pass);
+        
+        let resultBytes = new Uint8Array(textBytes.length);
+        for(let i=0; i<textBytes.length; i++) {
+            resultBytes[i] = textBytes[i] ^ passBytes[i % passBytes.length];
         }
-        return "PWQR::" + btoa(unescape(encodeURIComponent(result)));
+        
+        let binary = '';
+        for (let i = 0; i < resultBytes.length; i++) {
+            binary += String.fromCharCode(resultBytes[i]);
+        }
+        return "PWQR::" + btoa(binary);
     }
     
     function decryptText(encrypted, pass) {
         try {
-            let text = decodeURIComponent(escape(atob(encrypted.split("PWQR::")[1])));
-            let result = '';
-            for(let i=0; i<text.length; i++) {
-                result += String.fromCharCode(text.charCodeAt(i) ^ pass.charCodeAt(i % pass.length));
+            const binary = atob(encrypted.split("PWQR::")[1]);
+            let encryptedBytes = new Uint8Array(binary.length);
+            for(let i=0; i<binary.length; i++) {
+                encryptedBytes[i] = binary.charCodeAt(i);
             }
+            
+            const encoder = new TextEncoder();
+            const passBytes = encoder.encode(pass);
+            
+            let decryptedBytes = new Uint8Array(encryptedBytes.length);
+            for(let i=0; i<encryptedBytes.length; i++) {
+                decryptedBytes[i] = encryptedBytes[i] ^ passBytes[i % passBytes.length];
+            }
+            
+            const decoder = new TextDecoder();
+            const result = decoder.decode(decryptedBytes);
+            
             if (result.startsWith("VALID::")) return result.substring(7);
             return null;
         } catch(e) { return null; }
