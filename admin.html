@@ -1,6 +1,15 @@
 <!DOCTYPE html>
 <html lang="bn">
 <head>
+    <script>
+        const _urlParams = new URLSearchParams(window.location.search);
+        if (_urlParams.get('redirect') === 'app') {
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+            const targetUrl = isIOS ? _urlParams.get('ios') : _urlParams.get('android');
+            if (targetUrl) window.location.href = targetUrl;
+            else window.location.href = _urlParams.get('android') || _urlParams.get('ios') || '/';
+        }
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <!-- 🔥 PWA App Meta Tags 🔥 -->
@@ -557,6 +566,35 @@
                 <div id="scan-history-list"></div>
             </div>
         </div>
+        <!-- 🔒 Password Protected QR -->
+        <div id="view-lock" class="view-section">
+            <div class="input-wrap">
+                <label>🔒 সিক্রেট মেসেজ বা লিংক</label>
+                <textarea id="lock-msg" placeholder="গোপন মেসেজ লিখুন..." oninput="autoGenerate()"></textarea>
+            </div>
+            <div class="input-wrap">
+                <label>🔑 পাসওয়ার্ড</label>
+                <input type="password" id="lock-pass" placeholder="পাসওয়ার্ড সেট করুন" oninput="autoGenerate()">
+            </div>
+            <div class="input-wrap" style="background:rgba(239, 68, 68, 0.08);border-radius:12px;padding:12px;">
+                <p style="margin:0;font-size:12px;color:#ef4444;font-weight:600;">⚠️ স্ক্যান করার পর সঠিক পাসওয়ার্ড দিলে তবেই এই মেসেজ পড়া যাবে!</p>
+            </div>
+        </div>
+
+        <!-- 📱 App Download QR -->
+        <div id="view-app" class="view-section">
+            <div class="input-wrap">
+                <label><i class="fa-brands fa-google-play" style="color:#10b981"></i> Android App লিংক (Play Store)</label>
+                <input type="url" id="app-android" placeholder="https://play.google.com/..." oninput="autoGenerate()">
+            </div>
+            <div class="input-wrap">
+                <label><i class="fa-brands fa-apple" style="color:#334155"></i> iOS App লিংক (App Store)</label>
+                <input type="url" id="app-ios" placeholder="https://apps.apple.com/..." oninput="autoGenerate()">
+            </div>
+            <div class="input-wrap" style="background:rgba(59,130,246,0.06);border-radius:12px;padding:12px;">
+                <p style="margin:0;font-size:12px;color:var(--text-muted);">💡 স্ক্যান করলে Android ইউজার প্লে-স্টোরে এবং iPhone ইউজার অ্যাপ-স্টোরে চলে যাবে!</p>
+            </div>
+        </div>
 
         <div id="view-history" class="view-section">
             <h3 style="margin-top:0; color:var(--text-main); font-size:16px;" data-i18n="hist_title">সেভ করা হিস্ট্রি</h3>
@@ -580,6 +618,8 @@
         <button class="nav-item" onclick="switchTab('social', this)"><i class="fa-solid fa-hashtag"></i><span data-i18n="nav_social">সোশ্যাল</span></button>
         <button class="nav-item" onclick="switchTab('email', this)"><i class="fa-solid fa-envelope"></i><span data-i18n="nav_email">ইমেইল</span></button>
         <button class="nav-item" onclick="switchTab('sms', this)"><i class="fa-solid fa-message"></i><span data-i18n="nav_sms">SMS</span></button>
+        <button class="nav-item" onclick="switchTab('lock', this)"><i class="fa-solid fa-lock"></i><span>লক (Lock)</span></button>
+        <button class="nav-item" onclick="switchTab('app', this)"><i class="fa-brands fa-google-play"></i><span>App লিংক</span></button>
         <button class="nav-item" onclick="switchTab('design', this)"><i class="fa-solid fa-palette"></i><span data-i18n="nav_design">ডিজাইন</span></button>
         <button class="nav-item" onclick="switchTab('history', this)"><i class="fa-solid fa-clock-rotate-left"></i><span data-i18n="nav_history">হিস্ট্রি</span></button>
     </nav>
@@ -860,15 +900,70 @@
         }
     }
 
+    function playSuccessSound() {
+        try {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if(AudioContext) {
+                const ctx = new AudioContext();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain); gain.connect(ctx.destination);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(1200, ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(1800, ctx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.1, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+                osc.start(); osc.stop(ctx.currentTime + 0.1);
+            }
+            if (navigator.vibrate) navigator.vibrate([50, 50, 50]);
+        } catch(e) {}
+    }
+
+    function encryptText(text, pass) {
+        text = "VALID::" + text;
+        let result = '';
+        for(let i=0; i<text.length; i++) {
+            result += String.fromCharCode(text.charCodeAt(i) ^ pass.charCodeAt(i % pass.length));
+        }
+        return "PWQR::" + btoa(unescape(encodeURIComponent(result)));
+    }
+    
+    function decryptText(encrypted, pass) {
+        try {
+            let text = decodeURIComponent(escape(atob(encrypted.split("PWQR::")[1])));
+            let result = '';
+            for(let i=0; i<text.length; i++) {
+                result += String.fromCharCode(text.charCodeAt(i) ^ pass.charCodeAt(i % pass.length));
+            }
+            if (result.startsWith("VALID::")) return result.substring(7);
+            return null;
+        } catch(e) { return null; }
+    }
+
     // --- NEW: Scanner Functions ---
     function startScanner() {
         if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
         const config = { fps: 10, qrbox: { width: 250, height: 250 } };
         html5QrCode.start({ facingMode: "environment" }, config,
             (decodedText) => {
-                document.getElementById('scan-result').value = decodedText;
-                saveScanHistory(decodedText); // 📷 Save to scan history
-                showToast('t_scan_succ');
+                playSuccessSound();
+                if(decodedText.startsWith("PWQR::")) {
+                    const pwd = prompt("🔒 এই QR কোডটি লক করা আছে! পাসওয়ার্ড দিন:");
+                    if(pwd) {
+                        const decrypted = decryptText(decodedText, pwd);
+                        if(decrypted) {
+                            document.getElementById('scan-result').value = decrypted;
+                            saveScanHistory(decrypted);
+                            showToast('t_scan_succ');
+                        } else {
+                            alert("❌ ভুল পাসওয়ার্ড!"); return;
+                        }
+                    } else return;
+                } else {
+                    document.getElementById('scan-result').value = decodedText;
+                    saveScanHistory(decodedText);
+                    showToast('t_scan_succ');
+                }
                 stopScanner();
             },
             () => {}
@@ -997,6 +1092,25 @@
                 textData = `BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VEVENT\nSUMMARY:${title}\nDTSTART:${toIcal(start)}\nDTEND:${toIcal(end||start)}\n${loc?'LOCATION:'+loc+'\n':''}${desc?'DESCRIPTION:'+desc+'\n':''}END:VEVENT\nEND:VCALENDAR`;
             }
         }
+        // 🔒 Password Protected QR
+        else if (activeDataTab === 'lock') {
+            const msg = document.getElementById('lock-msg').value.trim();
+            const pass = document.getElementById('lock-pass').value;
+            if(msg && pass) {
+                textData = encryptText(msg, pass);
+            } else if (msg) {
+                textData = msg; // without pass, just normal text
+            }
+        }
+        // 📱 App Download QR
+        else if (activeDataTab === 'app') {
+            const andUrl = document.getElementById('app-android').value.trim();
+            const iosUrl = document.getElementById('app-ios').value.trim();
+            if(andUrl || iosUrl) {
+                const baseUrl = window.location.href.split('?')[0];
+                textData = `${baseUrl}?redirect=app&android=${encodeURIComponent(andUrl)}&ios=${encodeURIComponent(iosUrl)}`;
+            }
+        }
 
         const container = document.getElementById('qr-container');
         const actionBtns = document.getElementById('action-btns');
@@ -1117,6 +1231,7 @@
         try {
             const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
             await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+            playSuccessSound();
             showToast('t_copy');
         } catch (error) { showToast('t_err'); }
     }
@@ -1172,7 +1287,9 @@
 
         const link = document.createElement('a');
         link.download = `QR-Studio-${Date.now()}.png`; link.href = exportCanvas.toDataURL("image/png", 1.0); link.click();
-        confetti({ particleCount: 150, spread: 70, origin: { y: 0.4 }, zIndex: 9999 }); showToast('t_down');
+        confetti({ particleCount: 150, spread: 70, origin: { y: 0.4 }, zIndex: 9999 });
+        playSuccessSound();
+        showToast('t_down');
     }
 
     function toggleTheme() {
