@@ -87,7 +87,6 @@
             cursor: not-allowed;
         }
 
-        /* Loading Animation */
         #loader {
             display: none;
             text-align: center;
@@ -96,7 +95,6 @@
             font-weight: 600;
         }
 
-        /* Result Section */
         #result-box {
             display: none;
             margin-top: 25px;
@@ -164,9 +162,7 @@
         
         <div id="error-box" class="error-msg"></div>
 
-        <div id="result-box">
-            <!-- JavaScript এর মাধ্যমে এখানে ডেটা দেখানো হবে -->
-        </div>
+        <div id="result-box"></div>
     </div>
 
     <script>
@@ -179,41 +175,39 @@
             const resultBox = document.getElementById('result-box');
             const errorBox = document.getElementById('error-box');
 
-            // ইনপুট চেক করা
             if (!brn || !dob) {
                 showError("অনুগ্রহ করে নিবন্ধন নম্বর এবং জন্ম তারিখ দিন!");
                 return;
             }
 
-            // UI রিসেট ও লোডিং দেখানো
             resultBox.style.display = 'none';
             errorBox.style.display = 'none';
             loader.style.display = 'block';
             btn.disabled = true;
 
-            const apiUrl = `https://infodokan.myani.top/apilab/BIRTH-INFO-MAIN.php?brn=${brn}&dob=${dob}`;
+            // CORS সমাধান: এখানে allorigins proxy ব্যবহার করা হয়েছে
+            const targetUrl = encodeURIComponent(`https://infodokan.myani.top/apilab/BIRTH-INFO-MAIN.php?brn=${brn}&dob=${dob}`);
+            const proxyUrl = `https://api.allorigins.win/raw?url=${targetUrl}`;
 
             try {
-                const response = await fetch(apiUrl);
+                const response = await fetch(proxyUrl);
                 const data = await response.json();
 
                 loader.style.display = 'none';
                 btn.disabled = false;
 
-                // যদি API থেকে এরর আসে বা ডেটা না পাওয়া যায়
+                // যদি API থেকে এরর আসে
                 if(data.error || Object.keys(data).length === 0) {
                     showError("কোনো তথ্য পাওয়া যায়নি। নম্বর ও তারিখ ঠিক আছে কিনা চেক করুন।");
                     return;
                 }
 
-                // ডাইনামিক ভাবে ডেটা প্রিন্ট করা
                 let htmlData = '<h3 style="color:#2b6cb0; text-align:center; margin-bottom:15px;">প্রাপ্ত তথ্য</h3>';
                 
                 for (const [key, value] of Object.entries(data)) {
-                    // API থেকে আসা ডেটাগুলো সুন্দর করে সাজানো
                     htmlData += `
                         <div class="result-item">
-                            <span class="result-label">${key.toUpperCase()}</span>
+                            <span class="result-label">${key}</span>
                             <span class="result-value">${value}</span>
                         </div>
                     `;
@@ -225,9 +219,7 @@
             } catch (error) {
                 loader.style.display = 'none';
                 btn.disabled = false;
-                
-                // ব্রাউজারের CORS পলিসির কারণে ফেচ ফেইল হতে পারে
-                showError("সার্ভার থেকে ডেটা আনতে সমস্যা হয়েছে! (CORS Error বা Server Down হতে পারে)");
+                showError("সার্ভার ডাউন আছে অথবা ডেটা লোড হতে ব্যর্থ হয়েছে!");
                 console.error("Error:", error);
             }
         }
